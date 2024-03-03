@@ -24,6 +24,9 @@
 
 #include "jamrecorder.h"
 
+const size_t frameSize = 512;
+const char* queueName = "/samples\0";
+
 using namespace recorder;
 
 /* ********************************************************************************************************
@@ -49,22 +52,35 @@ CJamClient::CJamClient ( const qint64 frame, const int _numChannels, const QStri
     out ( nullptr )
 {
     // At this point we may not have much of a name
-    QString fileName = ClientName() + "-" + QString::number ( frame ) + "-" + QString::number ( _numChannels );
-    QString affix    = "";
-    while ( recordBaseDir.exists ( fileName + affix + ".wav" ) )
-    {
-        affix = affix.length() == 0 ? "_1" : "_" + QString::number ( affix.remove ( 0, 1 ).toInt() + 1 );
-    }
-    fileName = fileName + affix + ".wav";
+//    QString fileName = ClientName() + "-" + QString::number ( frame ) + "-" + QString::number ( _numChannels );
+//    QString affix    = "";
+//    while ( recordBaseDir.exists ( fileName + affix + ".wav" ) )
+//    {
+//        affix = affix.length() == 0 ? "_1" : "_" + QString::number ( affix.remove ( 0, 1 ).toInt() + 1 );
+//    }
+//    fileName = fileName + affix + ".wav";
+//
+//    wavFile = new QFile ( recordBaseDir.absoluteFilePath ( fileName ) );
+//    if ( !wavFile->open ( QFile::OpenMode ( QIODevice::OpenModeFlag::ReadWrite ) ) ) // need to allow rewriting headers
+//    {
+//        throw CGenErr ( "Could not write to WAV file " + wavFile->fileName() );
+//    }
+//    out = new CWaveStream ( wavFile, numChannels );
+//
+//    filename = wavFile->fileName();
 
-    wavFile = new QFile ( recordBaseDir.absoluteFilePath ( fileName ) );
-    if ( !wavFile->open ( QFile::OpenMode ( QIODevice::OpenModeFlag::ReadWrite ) ) ) // need to allow rewriting headers
-    {
-        throw CGenErr ( "Could not write to WAV file " + wavFile->fileName() );
+    qInfo() << "making message queue";
+    mq_unlink(queueName);
+    int flags = O_CREAT | O_WRONLY | O_NONBLOCK;
+    mode_t perms = S_IRUSR | S_IWUSR;
+    struct mq_attr attr;
+    attr.mq_maxmsg = 8;
+    attr.mq_msgsize = frameSize;
+    write_mqd = mq_open(queueName, flags, perms, &attr);
+    if (write_mqd == (mqd_t)-1) {
+        qWarning() << "Can't open mq '" << queueName << "' for write";
+        exit(1);
     }
-    out = new CWaveStream ( wavFile, numChannels );
-
-    filename = wavFile->fileName();
 }
 
 /**
@@ -76,10 +92,16 @@ void CJamClient::Frame ( const QString _name, const CVector<int16_t>& pcm, int i
 {
     name = _name;
 
-    for ( int i = 0; i < numChannels * iServerFrameSizeSamples; i++ )
-    {
-        *out << pcm[i];
+    if (mq_send(write_mqd, reinterpret_cast<const char*>(pcm.data()), iServerFrameSizeSamples * 2 * numChannels, 0) == -1) {
+        // qDebug() << "Can't send to mq: frame " << frameCount << " from " << name;
+    } else {
+        // qDebug() << "wrote frame " << frameCount << " from " << name;
     }
+
+//    for ( int i = 0; i < numChannels * iServerFrameSizeSamples; i++ )
+//    {
+//        *out << pcm[i];
+//    }
 
     frameCount++;
 }
@@ -89,17 +111,19 @@ void CJamClient::Frame ( const QString _name, const CVector<int16_t>& pcm, int i
  */
 void CJamClient::Disconnect()
 {
-    if ( out )
-    {
-        static_cast<CWaveStream*> ( out )->finalise();
-        delete out;
-        out = nullptr;
-    }
+  mq_unlink(queueName);
 
-    wavFile->close();
-
-    delete wavFile;
-    wavFile = nullptr;
+//    if ( out )
+//    {
+//        static_cast<CWaveStream*> ( out )->finalise();
+//        delete out;
+//        out = nullptr;
+//    }
+//
+//    wavFile->close();
+//
+//    delete wavFile;
+//    wavFile = nullptr;
 }
 
 /**

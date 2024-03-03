@@ -35,6 +35,21 @@
 #include "creaperproject.h"
 #include "cwavestream.h"
 
+
+
+
+
+
+#include <mqueue.h>
+#include <fcntl.h>              /* For definition of O_NONBLOCK */
+#include <iostream>
+#include <fstream>
+
+
+
+
+
+
 namespace recorder
 {
 
@@ -106,6 +121,13 @@ private:
     QFile*       wavFile;
     QDataStream* out;
     qint64       frameCount = 0;
+
+
+
+    mqd_t write_mqd;
+
+
+
 };
 
 class CJamSession : public QObject
