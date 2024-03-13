@@ -39,11 +39,12 @@
 
 
 
-
+// >>> SM Addition
 #include <mqueue.h>
 #include <fcntl.h>              /* For definition of O_NONBLOCK */
 #include <iostream>
 #include <fstream>
+// <<< SM Addition
 
 
 
@@ -121,13 +122,6 @@ private:
     QFile*       wavFile;
     QDataStream* out;
     qint64       frameCount = 0;
-
-
-
-    mqd_t write_mqd;
-
-
-
 };
 
 class CJamSession : public QObject
@@ -206,6 +200,15 @@ private:
     bool         isRecording;
     CJamSession* currentSession;
     QMutex       ChIdMutex;
+
+
+
+// >>> SM Addition
+    mqd_t write_mqd;
+// <<< SM Addition
+
+
+
 
 signals:
     void RecordingSessionStarted ( QString sessionDir );
