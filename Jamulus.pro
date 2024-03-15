@@ -42,6 +42,10 @@ contains(CONFIG, "headless") {
     QT += multimedia
 }
 
+# >>> SM Addition
+LIBS += "-lrt"
+# <<< SM Addition
+
 # Hint: When adding new translations, make sure to update
 # DISTFILES (above) and src/resources.qrc as well.
 LRELEASE_DIR = src/translation
