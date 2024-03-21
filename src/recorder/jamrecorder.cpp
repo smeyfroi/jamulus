@@ -458,6 +458,20 @@ void CJamRecorder::OnEnd()
         ReaperProjectFromCurrentSession();
         AudacityLofFromCurrentSession();
 
+
+
+        // >>> SM Addition
+        //  aws s3 mv jamulus-recordings/Jam-20240320-152032777 s3://meyfroidt/recordings/Jam-20240320-152032777 --recursive
+        //  rm jamulus-recordings/Jam-20240320-152032777
+        std::string p = currentSession->SessionDir().absolutePath().toStdString();
+        std::string d = currentSession->SessionDir().dirName().toStdString();
+        std::string cmd("aws s3 mv " + p + " s3://meyfroidt/recordings/" + d + " --recursive && rmdir " + p);
+        std::system(cmd.c_str());
+        //currentSession->SessionDir().filePath
+        // <<<
+
+
+
         delete currentSession;
         currentSession = nullptr;
     }
