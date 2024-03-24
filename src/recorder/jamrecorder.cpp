@@ -653,9 +653,10 @@ void CJamRecorder::OnFrame ( const int              iChID,
 // >>> SM Addition
     // Send one message with just the iChID followed by the frame of audio samples
     // This might be a bad idea (limited number of messages allowed in the queue, more scope for errors), but it's simple and maybe it'll work
-    if (mq_send(write_mqd, reinterpret_cast<const char*>(&iChID), sizeof(int16_t), 0) != -1) {
+    int16_t channelId = static_cast<int16_t>(iChID);
+    if (mq_send(write_mqd, reinterpret_cast<const char*>(&channelId), sizeof(int16_t), 0) != -1) {
         if (mq_send(write_mqd, reinterpret_cast<const char*>(data.data()), data.size(), 0) == -1) {
-            //qDebug() << "Can't send to mq from " << name;
+            qDebug() << "Can't send audio frame to mq from " << name;
         }
     }
 // <<< SM Addition
