@@ -626,6 +626,7 @@ void CJamRecorder::OnDisconnected ( int iChID )
  *
  * Ensures recording has started.
  */
+struct meta_t { int16_t channelId; };
 void CJamRecorder::OnFrame ( const int              iChID,
                              const QString          name,
                              const CHostAddress     address,
@@ -651,13 +652,15 @@ void CJamRecorder::OnFrame ( const int              iChID,
     }
 
 // >>> SM Addition
-    // Send one message with just the iChID followed by the frame of audio samples
+    // Send one message with just the metadata followed by the frame of audio samples
     // This might be a bad idea (limited number of messages allowed in the queue, more scope for errors), but it's simple and maybe it'll work
     int16_t channelId = static_cast<int16_t>(iChID);
-    if (mq_send(write_mqd, reinterpret_cast<const char*>(&channelId), sizeof(int16_t), 0) != -1) {
+    struct meta_t meta = { channelId };
+    if (mq_send(write_mqd, reinterpret_cast<const char*>(&meta), sizeof(meta_t), 0) != -1) {
         if (mq_send(write_mqd, reinterpret_cast<const char*>(data.data()), data.size(), 0) == -1) {
             qDebug() << "Can't send audio frame to mq from " << name;
         }
     }
+
 // <<< SM Addition
 }
