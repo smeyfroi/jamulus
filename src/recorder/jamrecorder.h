@@ -205,6 +205,8 @@ private:
 
 // >>> SM Addition
     mqd_t write_mqd;
+    unsigned long frameSequence;
+    struct meta_t { int16_t channelId; unsigned long frameSequence; };
 // <<< SM Addition
 
 
