@@ -142,7 +142,9 @@ public:
 
     void End();
 
-    QVector<CJamClient*> Clients() { return vecptrJamClients; }
+// >>> SM Addition
+    QVector<CJamClient*>& Clients() { return vecptrJamClients; }
+// <<< SM Addition
 
     QMap<QString, QList<STrackItem>> Tracks();
 
@@ -205,8 +207,7 @@ private:
 
 // >>> SM Addition
     mqd_t write_mqd;
-    unsigned long frameSequence;
-    struct meta_t { int16_t channelId; unsigned long frameSequence; };
+    struct meta_t { int16_t channelId; uint64_t frameSequence; };
 // <<< SM Addition
 
 
