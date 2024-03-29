@@ -25,8 +25,8 @@
 #include "jamrecorder.h"
 
 // >>> SM Addition
-const size_t frameSize = 512;
-const char* queueName = "/samples";
+const size_t MAX_MQ_MESSAGE_SIZE = 512;
+const char* QUEUE_NAME = "/samples";
 // <<< SM Addition
 
 using namespace recorder;
@@ -392,23 +392,39 @@ QString CJamRecorder::Init()
     }
 
 // >>> SM Addition
-    qInfo() << "Deleting message queue '" << queueName << "'";
-    mq_unlink(queueName);
-    qInfo() << "Making new message queue '" << queueName << "' for write";
-    int flags = O_CREAT | O_WRONLY | O_NONBLOCK;
+    qInfo() << "Deleting message queue '" << QUEUE_NAME << "'";
+    mq_unlink(QUEUE_NAME);
+    qInfo() << "Making new message queue '" << QUEUE_NAME << "' for write";
+    int flags = O_CREAT | O_RDWR | O_NONBLOCK;
     mode_t perms = S_IRUSR | S_IWUSR;
     struct mq_attr attr;
-    attr.mq_maxmsg = 8;
-    attr.mq_msgsize = frameSize;
-    write_mqd = mq_open(queueName, flags, perms, &attr);
+    attr.mq_maxmsg = 10;
+    attr.mq_msgsize = MAX_MQ_MESSAGE_SIZE;
+    write_mqd = mq_open(QUEUE_NAME, flags, perms, &attr);
     if (write_mqd == (mqd_t)-1) {
-        qWarning() << "Can't open message queue '" << queueName << "' for write";
-        exit(1);
+        errmsg = QString ( "Can't open message queue '%1' for write" ).arg ( QUEUE_NAME );
+        qCritical() << qUtf8Printable ( errmsg );
+        return errmsg;
+//        qCritical() << "Can't open message queue '" << QUEUE_NAME << "' for write";
+//        exit(1);
     }
 // <<< SM Addition
 
     return errmsg;
 }
+
+// >>> SM Addition
+const size_t MAX_MQ_FRAME_SIZE = 2048; // just for draining the queue
+void CJamRecorder::DrainMq()
+{
+    char buf[MAX_MQ_FRAME_SIZE];
+    unsigned int prio;
+    ssize_t flushRead = 1;
+    while(flushRead > -1) {
+        flushRead = mq_receive(write_mqd, buf, MAX_MQ_FRAME_SIZE, &prio);
+    }
+}
+// <<< SM Addition
 
 /**
  * @brief CJamRecorder::Start Start up tasks for a new session
@@ -458,9 +474,13 @@ void CJamRecorder::OnEnd()
         ReaperProjectFromCurrentSession();
         AudacityLofFromCurrentSession();
 
-
-
         // >>> SM Addition
+        DrainMq();
+        endSessionMeta_t message { static_cast<int8_t>(META_TYPE::endSession) };
+        if (mq_send(write_mqd, reinterpret_cast<const char *>(&message), sizeof(endSessionMeta_t), 0) == -1) {
+            qWarning() << "Failed to send endSession";
+        }
+
         //  aws s3 mv jamulus-recordings/Jam-20240320-152032777 s3://meyfroidt/recordings/Jam-20240320-152032777 --recursive
         //  rm jamulus-recordings/Jam-20240320-152032777
         std::string p = currentSession->SessionDir().absolutePath().toStdString();
@@ -468,8 +488,6 @@ void CJamRecorder::OnEnd()
         std::string cmd("aws s3 mv " + p + " s3://meyfroidt/recordings/" + d + " --recursive && rmdir " + p);
         std::system(cmd.c_str());
         // <<<
-
-
 
         delete currentSession;
         currentSession = nullptr;
@@ -486,6 +504,20 @@ void CJamRecorder::OnTriggerSession()
     {
         Start();
     }
+
+// >>> SM Addition
+    DrainMq();
+    startSessionMeta_t message { static_cast<int8_t>(META_TYPE::startSession) };
+    QString dirName = currentSession->SessionDir().dirName();
+    if (dirName.size() > MAX_OSC_FILEPATH_LENGTH) {
+        dirName.resize(MAX_OSC_FILEPATH_LENGTH);
+    }
+    strcpy(message.sessionDir, dirName.toLocal8Bit().constData());
+    if (mq_send(write_mqd, reinterpret_cast<const char *>(&message), sizeof(startSessionMeta_t), 0) == -1) {
+        qWarning() << "Failed to send startSession";
+    }
+// <<< SM Addition
+
 }
 
 /**
@@ -650,17 +682,25 @@ void CJamRecorder::OnFrame ( const int              iChID,
     }
 
 // >>> SM Addition
-    // Send one message with just the metadata followed by the frame of audio samples
+    // Send one message with just the short metadata followed by the frame of audio samples
     // This might be a bad idea (limited number of messages allowed in the queue, more scope for errors), but it's simple and maybe it'll work
     int16_t channelId = static_cast<int16_t>(iChID);
     if (iChID >= 0 && currentSession->Clients()[iChID] != nullptr) {
         CJamClient* client = currentSession->Clients()[iChID];
         qint64 frameSequence = client->StartFrame() + client->FrameCount();
-        struct meta_t meta = { channelId, frameSequence };
-        if (mq_send(write_mqd, reinterpret_cast<const char*>(&meta), sizeof(meta_t), 0) != -1) {
+        double offsetSeconds = secondsAt48Kf(frameSequence, iServerFrameSizeSamples);
+        QString filename = currentSession->Clients()[iChID]->ClientName();
+        if (filename.size() > MAX_OSC_FILEPATH_LENGTH) {
+            filename.resize(MAX_OSC_FILEPATH_LENGTH);
+        }
+        struct audioMeta_t meta = { static_cast<int8_t>(META_TYPE::audioFrame), channelId, frameSequence, offsetSeconds };
+        strcpy(meta.filename, filename.toLocal8Bit().constData());
+        if (mq_send(write_mqd, reinterpret_cast<const char*>(&meta), sizeof(audioMeta_t), 0) != -1) {
             if (mq_send(write_mqd, reinterpret_cast<const char*>(data.data()), data.size(), 0) == -1) {
-                qDebug() << "Can't send audio frame to mq from " << name;
+                qWarning() << "Can't send audio frame to mq from " << name;
             }
+        } else {
+            /* qWarning() << "Can't send meta to mq from " << name; */
         }
     }
 // <<< SM Addition

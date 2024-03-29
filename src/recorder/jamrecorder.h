@@ -54,6 +54,13 @@
 namespace recorder
 {
 
+// >>> SM Addition
+inline double secondsAt48Kf ( const qint64 frames, const int frameSize )
+{
+    return static_cast<double>(frames*frameSize) / 48000;
+}
+// <<< SM Addition
+
 class CJamClientConnection : public QObject
 {
     Q_OBJECT
@@ -203,15 +210,15 @@ private:
     CJamSession* currentSession;
     QMutex       ChIdMutex;
 
-
-
 // >>> SM Addition
     mqd_t write_mqd;
-    struct meta_t { int16_t channelId; uint64_t frameSequence; };
+    static constexpr size_t MAX_OSC_FILEPATH_LENGTH = 64; // big enough for the recording dirName and separately for a client filename
+    enum class META_TYPE { startSession=0, endSession, audioFrame };
+    struct startSessionMeta_t { int8_t metaType; char sessionDir[MAX_OSC_FILEPATH_LENGTH+1]; };
+    struct endSessionMeta_t  { int8_t metaType; };
+    struct audioMeta_t { int8_t metaType; int16_t channelId; uint64_t frameSequence; double offsetSeconds; char filename[MAX_OSC_FILEPATH_LENGTH+1]; };
+    void DrainMq();
 // <<< SM Addition
-
-
-
 
 signals:
     void RecordingSessionStarted ( QString sessionDir );
