@@ -494,6 +494,7 @@ void CJamRecorder::OnEnd()
         if (mq_send(write_mqd, reinterpret_cast<const char *>(&message), sizeof(endSessionMeta_t), 0) == -1) {
             qWarning() << "Failed to send endSession";
         }
+        std::cout << "Jamulus: end session" << std::endl;
 
         //  aws s3 mv jamulus-recordings/Jam-20240320-152032777 s3://meyfroidt/recordings/Jam-20240320-152032777 --recursive
         //  rm jamulus-recordings/Jam-20240320-152032777
