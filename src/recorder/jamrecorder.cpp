@@ -392,9 +392,9 @@ QString CJamRecorder::Init()
     }
 
 // >>> SM Addition
-    qInfo() << "Deleting message queue '" << QUEUE_NAME << "'";
-    mq_unlink(QUEUE_NAME);
-    qInfo() << "Making new message queue '" << QUEUE_NAME << "' for write";
+    // qInfo() << "Deleting message queue '" << QUEUE_NAME << "'";
+    // mq_unlink(QUEUE_NAME);
+    qInfo() << "Opening message queue '" << QUEUE_NAME << "' for write";
     int flags = O_CREAT | O_RDWR | O_NONBLOCK;
     mode_t perms = S_IRUSR | S_IWUSR;
     struct mq_attr attr;
@@ -705,3 +705,4 @@ void CJamRecorder::OnFrame ( const int              iChID,
     }
 // <<< SM Addition
 }
+
