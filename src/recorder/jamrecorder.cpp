@@ -451,7 +451,7 @@ void CJamRecorder::Start()
             if (dirName.size() > MAX_OSC_FILEPATH_LENGTH) {
                 dirName.resize(MAX_OSC_FILEPATH_LENGTH);
             }
-            strcpy(message.sessionDir, dirName.toLocal8Bit().constData());
+            strcpy(&(message.sessionDir), dirName.toLocal8Bit().constData());
             if (mq_send(write_mqd, reinterpret_cast<const char *>(&message), sizeof(startSessionMeta_t), 0) == -1) {
                 qWarning() << "Failed to send startSession";
             }
@@ -694,7 +694,7 @@ void CJamRecorder::OnFrame ( const int              iChID,
             filename.resize(MAX_OSC_FILEPATH_LENGTH);
         }
         struct audioMeta_t meta = { static_cast<int8_t>(META_TYPE::audioFrame), channelId, frameSequence, offsetSeconds };
-        strcpy(meta.filename, filename.toLocal8Bit().constData());
+        strcpy(&(meta.filename), filename.toLocal8Bit().constData());
         if (mq_send(write_mqd, reinterpret_cast<const char*>(&meta), sizeof(audioMeta_t), 0) != -1) {
             if (mq_send(write_mqd, reinterpret_cast<const char*>(data.data()), data.size(), 0) == -1) {
                 qWarning() << "Can't send audio frame to mq from " << name;
