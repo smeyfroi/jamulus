@@ -443,6 +443,20 @@ void CJamRecorder::Start()
         {
             currentSession = new CJamSession ( recordBaseDir );
             isRecording    = true;
+
+// >>> SM Addition
+            DrainMq();
+            startSessionMeta_t message { static_cast<int8_t>(META_TYPE::startSession) };
+            QString dirName = currentSession->SessionDir().dirName();
+            if (dirName.size() > MAX_OSC_FILEPATH_LENGTH) {
+                dirName.resize(MAX_OSC_FILEPATH_LENGTH);
+            }
+            strcpy(message.sessionDir, dirName.toLocal8Bit().constData());
+            if (mq_send(write_mqd, reinterpret_cast<const char *>(&message), sizeof(startSessionMeta_t), 0) == -1) {
+                qWarning() << "Failed to send startSession";
+            }
+// <<< SM Addition
+
         }
         catch ( const CGenErr& err )
         {
@@ -504,20 +518,6 @@ void CJamRecorder::OnTriggerSession()
     {
         Start();
     }
-
-// >>> SM Addition
-    DrainMq();
-    startSessionMeta_t message { static_cast<int8_t>(META_TYPE::startSession) };
-    QString dirName = currentSession->SessionDir().dirName();
-    if (dirName.size() > MAX_OSC_FILEPATH_LENGTH) {
-        dirName.resize(MAX_OSC_FILEPATH_LENGTH);
-    }
-    strcpy(message.sessionDir, dirName.toLocal8Bit().constData());
-    if (mq_send(write_mqd, reinterpret_cast<const char *>(&message), sizeof(startSessionMeta_t), 0) == -1) {
-        qWarning() << "Failed to send startSession";
-    }
-// <<< SM Addition
-
 }
 
 /**
